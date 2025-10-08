@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Front-End Capstone: Login / Register</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            min-height: 100vh;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .error-message {
+            animation: slideIn 0.3s ease-out;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Authentication Screen (Login/Register) -->
+    <div id="auth-screen" class="w-full flex justify-center py-20">
+        <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl">
+            <h2 id="auth-title" class="text-3xl font-bold mb-6 text-center text-gray-800">Login</h2>
+
+            <!-- Login Form -->
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="login-email" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="login-email" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
+                </div>
+                <div>
+                    <label for="login-password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="login-password" required minlength="8" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
+                </div>
+                <div id="login-error" class="text-red-600 text-sm hidden error-message"></div>
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition duration-300">
+                    Sign In
+                </button>
+            </form>
+
+            <!-- Register Form (Starts hidden) -->
+            <form id="register-form" class="space-y-6 hidden">
+                <div>
+                    <label for="register-email" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="register-email" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
+                    <p id="email-error" class="text-red-600 text-xs mt-1 hidden error-message">Invalid email format.</p>
+                </div>
+                <div>
+                    <label for="register-password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="register-password" required minlength="8" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
+                    <p id="password-error" class="text-red-600 text-xs mt-1 hidden error-message">Password must be at least 8 characters long.</p>
+                </div>
+                <div>
+                    <label for="register-confirm-password" class="block text-sm font-medium text-gray-700">Confirm Password</label>
+                    <input type="password" id="register-confirm-password" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm">
+                    <p id="confirm-password-error" class="text-red-600 text-xs mt-1 hidden error-message">Passwords do not match.</p>
+                </div>
+                <div id="register-error" class="text-red-600 text-sm hidden error-message"></div>
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-green-600 hover:bg-green-700 transition duration-300">
+                    Create Account
+                </button>
+            </form>
+
+            <p class="mt-6 text-center text-sm">
+                <span id="auth-toggle-text">Don't have an account?</span>
+                <button id="auth-toggle-btn" class="font-medium text-indigo-600 hover:text-indigo-500 ml-1 transition duration-150">
+                    Register
+                </button>
+            </p>
+        </div>
+    </div>
+    
+    <!-- Custom Alert Message Box -->
+    <div id="custom-message-box" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 hidden transition-opacity duration-300">
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full transform transition-transform duration-300 scale-100">
+            <h4 id="message-title" class="text-xl font-bold mb-3 text-gray-800"></h4>
+            <p id="message-content" class="text-gray-600 mb-6"></p>
+            <div class="flex justify-end">
+                <button id="message-ok-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Utility Functions and Constants ---
+
+        const STORAGE_KEY_USERS = 'todo_app_users';
+        const STORAGE_KEY_SESSION = 'activeUserId';
+        const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const MIN_PASS_LENGTH = 8;
+
+        function showMessage(title, content) {
+            document.getElementById('message-title').textContent = title;
+            document.getElementById('message-content').textContent = content;
+            const box = document.getElementById('custom-message-box');
+            box.classList.remove('hidden');
+            document.getElementById('message-ok-btn').onclick = () => {
+                box.classList.add('hidden');
+            };
+        }
+
+        // --- 2. Authentication Logic (Login/Register) ---
+
+        function isValidEmail(email) {
+            return EMAIL_REGEX.test(email);
+        }
+
+        function handleRegistration(e) {
+            e.preventDefault();
+            const emailInput = document.getElementById('register-email');
+            const passwordInput = document.getElementById('register-password');
+            const confirmInput = document.getElementById('register-confirm-password');
+            const errorElement = document.getElementById('register-error');
+            const emailError = document.getElementById('email-error');
+            const passError = document.getElementById('password-error');
+            const confirmError = document.getElementById('confirm-password-error');
+
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            const confirmPassword = confirmInput.value;
+
+            // Reset errors
+            [errorElement, emailError, passError, confirmError].forEach(el => el.classList.add('hidden'));
+
+            if (!isValidEmail(email)) {
+                emailError.classList.remove('hidden');
+                return;
+            }
+
+            if (password.length < MIN_PASS_LENGTH) {
+                passError.classList.remove('hidden');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                confirmError.classList.remove('hidden');
+                return;
+            }
+
+            let users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+
+            if (users.some(u => u.email === email)) {
+                errorElement.textContent = "This email is already registered.";
+                errorElement.classList.remove('hidden');
+                return;
+            }
+
+            const newUser = {
+                id: `user-${Date.now()}`,
+                email: email,
+                password: password 
+            };
+
+            users.push(newUser);
+            localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
+
+            showMessage('Success!', 'Registration complete. Please log in.');
+            toggleAuthMode('login');
+            // Clear register form after success
+            document.getElementById('register-form').reset();
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorElement = document.getElementById('login-error');
+
+            errorElement.classList.add('hidden');
+
+            const users = JSON.parse(localStorage.getItem(STORAGE_KEY_USERS) || '[]');
+            const user = users.find(u => u.email === email && u.password === password);
+
+            if (user) {
+                // Set the active session ID and redirect to the dashboard
+                localStorage.setItem(STORAGE_KEY_SESSION, user.id);
+                window.location.href = 'dashboard.html';
+            } else {
+                errorElement.textContent = "Invalid email or password.";
+                errorElement.classList.remove('hidden');
+            }
+        }
+
+        function toggleAuthMode(mode) {
+            const isLogin = mode === 'login';
+            document.getElementById('auth-title').textContent = isLogin ? 'Login' : 'Create Account';
+            document.getElementById('login-form').classList.toggle('hidden', !isLogin);
+            document.getElementById('register-form').classList.toggle('hidden', isLogin);
+            document.getElementById('auth-toggle-text').textContent = isLogin ? "Don't have an account?" : "Already have an account?";
+            document.getElementById('auth-toggle-btn').textContent = isLogin ? 'Register' : 'Login';
+        }
+
+        // --- 3. Event Listeners and Initialization ---
+
+        window.onload = function() {
+            // Check if the user is already logged in and redirect to dashboard
+            if (localStorage.getItem(STORAGE_KEY_SESSION)) {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            document.getElementById('register-form').addEventListener('submit', handleRegistration);
+            document.getElementById('login-form').addEventListener('submit', handleLogin);
+
+            document.getElementById('auth-toggle-btn').addEventListener('click', (e) => {
+                e.preventDefault();
+                const isLogin = document.getElementById('login-form').classList.contains('hidden');
+                toggleAuthMode(isLogin ? 'login' : 'register');
+            });
+        };
+    </script>
+</body>
+</html>
